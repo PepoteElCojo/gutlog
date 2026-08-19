@@ -1,0 +1,1168 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#F1F3EC">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>GutLog</title>
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" href="./icon-192.png">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<style>
+:root{
+  --bg:#F1F3EC;
+  --surface:#FFFFFF;
+  --surface-soft:#FBFAF4;
+  --ink:#1F2A22;
+  --ink-soft:#5A6459;
+  --ink-faint:#8A9186;
+  --border:#DEDCCB;
+  --border-soft:#EAE8DA;
+  --amber:#B8863B;
+  --amber-soft:#EFE3CB;
+  --sage:#5F8560;
+  --sage-soft:#DCE7DA;
+  --blue:#4F7291;
+  --blue-soft:#DCE5EC;
+  --rust:#B4553D;
+  --rust-soft:#F1DBD3;
+  --radius-s:10px;
+  --radius-m:16px;
+  --radius-l:22px;
+  --shadow: 0 1px 2px rgba(31,42,34,0.06), 0 4px 14px rgba(31,42,34,0.06);
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
+html,body{height:100%;}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  -webkit-font-smoothing:antialiased;
+  overscroll-behavior-y: none;
+}
+button{font-family:inherit;}
+input,select,textarea{font-family:inherit;}
+
+/* ---------- App shell ---------- */
+#app{
+  max-width:560px;
+  margin:0 auto;
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+  padding-bottom: calc(72px + env(safe-area-inset-bottom));
+}
+
+.topbar{
+  position:sticky; top:0; z-index:20;
+  background:linear-gradient(180deg, var(--bg) 80%, rgba(241,243,236,0));
+  padding: calc(18px + env(safe-area-inset-top)) 20px 10px;
+  display:flex; align-items:center; justify-content:space-between;
+}
+.brand{
+  display:flex; align-items:center; gap:10px;
+}
+.brand-mark{
+  width:34px;height:34px;border-radius:10px;
+  background:var(--ink);
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+}
+.brand-mark svg{width:19px;height:19px;}
+.brand-text h1{
+  font-size:17px; margin:0; font-weight:700; letter-spacing:-0.01em;
+}
+.brand-text .date-sub{
+  font-size:12px; color:var(--ink-soft); margin-top:1px; text-transform:capitalize;
+}
+
+.ring-wrap{ position:relative; width:44px; height:44px; }
+.ring-wrap svg{ width:44px; height:44px; transform:rotate(-90deg); }
+.ring-wrap .ring-bg{ fill:none; stroke:var(--border-soft); stroke-width:4; }
+.ring-wrap .ring-fg{ fill:none; stroke:var(--sage); stroke-width:4; stroke-linecap:round; transition:stroke-dashoffset .4s ease; }
+.ring-wrap .ring-count{
+  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  font-size:11px; font-weight:700; color:var(--ink);
+}
+
+main{ flex:1; padding: 4px 20px 24px; }
+
+.panel{ display:none; animation: fadein .18s ease; }
+.panel.active{ display:block; }
+@keyframes fadein{ from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:translateY(0);} }
+
+.card{
+  background:var(--surface);
+  border:1px solid var(--border-soft);
+  border-radius:var(--radius-l);
+  padding:18px;
+  margin-bottom:14px;
+  box-shadow:var(--shadow);
+}
+.card h2{
+  font-size:14px; margin:0 0 12px; font-weight:700;
+  display:flex; align-items:center; gap:8px; color:var(--ink);
+}
+.card h2 .num{
+  width:20px;height:20px;border-radius:6px;background:var(--amber-soft); color:var(--amber);
+  font-size:11px; display:flex; align-items:center; justify-content:center; font-weight:800;
+}
+.hint{ font-size:12.5px; color:var(--ink-soft); margin:0 0 12px; line-height:1.5; }
+
+/* ---------- Bottom tab bar ---------- */
+.tabbar{
+  position:fixed; left:0; right:0; bottom:0; z-index:30;
+  background:var(--surface);
+  border-top:1px solid var(--border-soft);
+  padding: 8px 10px calc(10px + env(safe-area-inset-bottom));
+  display:flex; justify-content:center;
+}
+.tabbar-inner{
+  max-width:560px; width:100%;
+  display:grid; grid-template-columns:repeat(4,1fr); gap:4px;
+}
+.tab-btn{
+  background:none; border:none; display:flex; flex-direction:column; align-items:center; gap:3px;
+  padding:6px 2px; border-radius:12px; color:var(--ink-faint); cursor:pointer;
+}
+.tab-btn svg{ width:21px; height:21px; }
+.tab-btn span{ font-size:10.5px; font-weight:600; }
+.tab-btn.active{ color:var(--amber); background:var(--amber-soft); }
+
+/* ---------- Food input ---------- */
+.food-input-row{ display:flex; gap:8px; }
+.food-input-row input{
+  flex:1; padding:12px 14px; border-radius:var(--radius-m); border:1px solid var(--border);
+  background:var(--surface-soft); font-size:15px; color:var(--ink); outline:none;
+}
+.food-input-row input:focus{ border-color:var(--amber); }
+.btn-add{
+  width:44px; height:44px; border-radius:var(--radius-m); border:none; background:var(--ink);
+  color:var(--bg); display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;
+}
+.btn-add svg{ width:20px; height:20px; }
+.chip-row{ display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+.chip{
+  display:flex; align-items:center; gap:6px; background:var(--sage-soft); color:#33502F;
+  padding:7px 8px 7px 13px; border-radius:99px; font-size:13.5px; font-weight:600;
+}
+.chip button{
+  width:18px;height:18px;border-radius:50%; border:none; background:rgba(0,0,0,0.08); color:inherit;
+  display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:13px; line-height:1; padding:0;
+}
+
+/* ---------- Stress scale ---------- */
+.stress-scale{ display:flex; gap:6px; justify-content:space-between; }
+.stress-btn{
+  flex:1; aspect-ratio:1/1; border-radius:10px; border:1.5px solid var(--border);
+  background:var(--surface-soft); font-weight:700; font-size:13px; color:var(--ink-soft); cursor:pointer;
+}
+.stress-btn.active{
+  border-color:transparent; color:#fff;
+}
+
+/* ---------- Bristol picker ---------- */
+.bristol-row{ display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; scrollbar-width:none; }
+.bristol-row::-webkit-scrollbar{ display:none; }
+.bristol-card{
+  flex:0 0 auto; width:64px; border-radius:var(--radius-m); border:1.5px solid var(--border);
+  background:var(--surface-soft); padding:10px 6px 8px; display:flex; flex-direction:column; align-items:center; gap:6px;
+  cursor:pointer;
+}
+.bristol-card canvas{ width:36px; height:36px; }
+.bristol-card .b-num{ font-size:12px; font-weight:800; color:var(--ink-soft); }
+.bristol-card.active{ border-color:var(--amber); background:var(--amber-soft); }
+.bristol-card.active .b-num{ color:var(--amber); }
+.bristol-detail{
+  margin-top:12px; font-size:13px; color:var(--ink-soft); background:var(--surface-soft);
+  border-radius:var(--radius-s); padding:10px 12px; line-height:1.5;
+}
+
+/* ---------- Save ---------- */
+.save-btn{
+  width:100%; padding:15px; border:none; border-radius:var(--radius-m); background:var(--ink); color:var(--bg);
+  font-size:15px; font-weight:700; cursor:pointer; margin-top:4px;
+}
+.save-btn:active{ opacity:0.85; }
+.save-msg{ text-align:center; font-size:13px; color:var(--sage); font-weight:700; height:18px; margin-top:8px; }
+
+.daypicker{
+  display:flex; align-items:center; justify-content:center; gap:16px; margin-top:6px; color:var(--ink-soft);
+}
+.daypicker-btn{
+  width:34px;height:34px;border-radius:50%; border:1px solid var(--border); background:var(--surface);
+  font-size:18px; cursor:pointer; color:var(--ink);
+}
+.daypicker-label{ font-size:13px; font-weight:700; min-width:120px; text-align:center; }
+
+/* ---------- History ---------- */
+.hist-entry{
+  background:var(--surface); border:1px solid var(--border-soft); border-radius:var(--radius-m);
+  padding:14px 16px; margin-bottom:10px; box-shadow:var(--shadow); cursor:pointer;
+}
+.hist-entry-top{ display:flex; justify-content:space-between; align-items:center; }
+.hist-date{ font-weight:700; font-size:14px; }
+.hist-badges{ display:flex; gap:6px; }
+.badge{ font-size:11.5px; font-weight:700; padding:4px 8px; border-radius:99px; }
+.badge.stress{ background:var(--blue-soft); color:#2C4A5F; }
+.badge.bristol{ background:var(--rust-soft); color:#7A3221; }
+.hist-foods{ margin-top:8px; font-size:12.5px; color:var(--ink-soft); line-height:1.5; }
+.hist-edit{
+  display:none; margin-top:12px; padding-top:12px; border-top:1px dashed var(--border);
+}
+.hist-entry.open .hist-edit{ display:block; }
+.hist-edit-row{ display:flex; gap:8px; margin-top:8px; }
+.hist-edit-row button{ flex:1; padding:10px; border-radius:var(--radius-s); border:none; font-weight:700; font-size:13px; cursor:pointer; }
+.btn-delete{ background:var(--rust-soft); color:#7A3221; }
+.btn-cancel{ background:var(--border-soft); color:var(--ink-soft); }
+.empty-state{
+  text-align:center; color:var(--ink-faint); font-size:13.5px; padding:30px 20px; line-height:1.6;
+}
+
+/* ---------- Stats ---------- */
+.range-row{ display:flex; gap:8px; }
+.range-row button{
+  flex:1; padding:10px 4px; border-radius:var(--radius-s); border:1.5px solid var(--border);
+  background:var(--surface-soft); font-size:12.5px; font-weight:700; color:var(--ink-soft); cursor:pointer;
+}
+.range-row button.active{ border-color:var(--amber); background:var(--amber-soft); color:var(--amber); }
+.stat-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+.stat-box{ background:var(--surface-soft); border-radius:var(--radius-s); padding:12px 8px; text-align:center; }
+.stat-box .v{ font-size:19px; font-weight:800; color:var(--ink); }
+.stat-box .l{ font-size:10.5px; color:var(--ink-soft); margin-top:2px; font-weight:600; }
+canvas{ width:100%; display:block; }
+#heatmapWrap{ overflow-x:auto; }
+.heatmap-table{ border-collapse:collapse; font-size:10.5px; }
+.heatmap-table td, .heatmap-table th{ width:26px; height:22px; text-align:center; color:var(--ink-soft); }
+.heatmap-table th{ font-weight:700; font-size:10px; }
+.heatmap-cell{ border-radius:5px; font-weight:700; color:#1F2A22; }
+.bristol-select{ display:flex; gap:6px; overflow-x:auto; margin-bottom:10px; scrollbar-width:none; }
+.bristol-select::-webkit-scrollbar{ display:none; }
+.bristol-select button{
+  flex:0 0 auto; width:34px; height:34px; border-radius:50%; border:1.5px solid var(--border);
+  background:var(--surface-soft); font-weight:800; font-size:13px; color:var(--ink-soft); cursor:pointer;
+}
+.bristol-select button.active{ border-color:var(--blue); background:var(--blue-soft); color:var(--blue); }
+
+/* ---------- Data tab ---------- */
+.btn-secondary{
+  width:100%; padding:13px; border-radius:var(--radius-m); border:1.5px solid var(--border);
+  background:var(--surface-soft); color:var(--ink); font-weight:700; font-size:14px; cursor:pointer; margin-top:4px;
+}
+.btn-danger{
+  width:100%; padding:13px; border-radius:var(--radius-m); border:none;
+  background:var(--rust-soft); color:#7A3221; font-weight:700; font-size:14px; cursor:pointer; margin-top:10px;
+}
+.reminder-row{ display:flex; align-items:center; gap:10px; margin-bottom:12px; font-size:14px; font-weight:600; }
+.switch input{ display:none; }
+.switch-track{
+  width:40px; height:24px; border-radius:99px; background:var(--border); display:block; position:relative; cursor:pointer; flex-shrink:0;
+}
+.switch-thumb{
+  position:absolute; top:2px; left:2px; width:20px; height:20px; border-radius:50%; background:#fff; transition:transform .18s ease;
+  box-shadow:0 1px 3px rgba(0,0,0,0.25);
+}
+.switch input:checked + .switch-track{ background:var(--sage); }
+.switch input:checked + .switch-track .switch-thumb{ transform:translateX(16px); }
+#reminderTime{ margin-left:auto; border:1px solid var(--border); border-radius:8px; padding:6px 8px; background:var(--surface-soft); }
+.notif-status{ font-size:12px; color:var(--ink-soft); margin-top:8px; text-align:center; }
+.import-mode{ margin-top:12px; display:flex; flex-direction:column; gap:8px; font-size:12.5px; color:var(--ink-soft); }
+.import-status{ font-size:12.5px; margin-top:8px; text-align:center; font-weight:700; }
+.storage-info{ font-size:13px; color:var(--ink-soft); margin-bottom:6px; line-height:1.6; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M6 3c0 4 3 4 3 8s-3 4-3 8" stroke="#F1F3EC" stroke-width="2" stroke-linecap="round"/><path d="M18 3c0 5-4 5-4 9s4 4 4 8" stroke="#F1F3EC" stroke-width="2" stroke-linecap="round" opacity="0.55"/></svg>
+      </div>
+      <div class="brand-text">
+        <h1>GutLog</h1>
+        <div class="date-sub" id="todayLabel">–</div>
+      </div>
+    </div>
+    <div class="ring-wrap">
+      <svg viewBox="0 0 44 44">
+        <circle class="ring-bg" cx="22" cy="22" r="18"></circle>
+        <circle class="ring-fg" id="ringFg" cx="22" cy="22" r="18" stroke-dasharray="113" stroke-dashoffset="113"></circle>
+      </svg>
+      <div class="ring-count" id="ringCount">0/3</div>
+    </div>
+  </div>
+
+  <main id="main">
+
+    <!-- ================= HEUTE ================= -->
+    <section class="panel active" id="panel-today">
+
+      <div class="card">
+        <h2><span class="num">1</span>Was hast du gegessen?</h2>
+        <p class="hint">Trag jedes Lebensmittel einzeln ein, nacheinander.</p>
+        <div class="food-input-row">
+          <input type="text" id="foodInput" placeholder="z.B. Haferflocken" autocomplete="off" list="foodSuggestions">
+          <datalist id="foodSuggestions"></datalist>
+          <button id="foodAddBtn" class="btn-add" aria-label="Hinzufügen">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <div class="chip-row" id="foodChips"></div>
+      </div>
+
+      <div class="card">
+        <h2><span class="num">2</span>Stresslevel heute</h2>
+        <p class="hint">1 = ganz entspannt · 10 = maximal gestresst</p>
+        <div class="stress-scale" id="stressScale"></div>
+      </div>
+
+      <div class="card">
+        <h2><span class="num">3</span>Stuhlgang (Bristol-Skala)</h2>
+        <p class="hint">Wähle den Typ, der am besten passt.</p>
+        <div class="bristol-row" id="bristolRow"></div>
+        <div class="bristol-detail" id="bristolDetail">Noch keine Auswahl.</div>
+      </div>
+
+      <button class="save-btn" id="saveTodayBtn">Eintrag speichern</button>
+      <div class="save-msg" id="saveMsg"></div>
+
+      <div class="daypicker">
+        <button id="dayBackBtn" class="daypicker-btn" aria-label="Vorheriger Tag">‹</button>
+        <div class="daypicker-label" id="dayPickerLabel">Heute</div>
+        <button id="dayFwdBtn" class="daypicker-btn" aria-label="Nächster Tag">›</button>
+      </div>
+
+    </section>
+
+    <!-- ================= VERLAUF ================= -->
+    <section class="panel" id="panel-history">
+      <div class="card">
+        <h2>Bisherige Einträge</h2>
+        <p class="hint">Tippe auf einen Eintrag zum Bearbeiten oder Löschen.</p>
+      </div>
+      <div id="historyList"></div>
+      <div class="empty-state" id="historyEmpty" style="display:none;">
+        Noch keine Einträge vorhanden. Leg unter „Heute“ los.
+      </div>
+    </section>
+
+    <!-- ================= AUSWERTUNG ================= -->
+    <section class="panel" id="panel-stats">
+
+      <div class="card">
+        <h2>Zeitraum</h2>
+        <div class="range-row" id="rangeRow">
+          <button data-range="7">7 Tage</button>
+          <button data-range="30">30 Tage</button>
+          <button data-range="90">90 Tage</button>
+          <button data-range="all" class="active">Gesamt</button>
+        </div>
+      </div>
+
+      <div class="card" id="statsSummaryCard">
+        <h2>Überblick</h2>
+        <div class="stat-grid" id="statGrid"></div>
+      </div>
+
+      <div class="card">
+        <h2>Stresslevel &amp; Bristol-Wert im Verlauf</h2>
+        <p class="hint">Orange = Stress (1–10) · Blau = Bristol-Wert (1–7)</p>
+        <canvas id="timelineChart" height="160"></canvas>
+      </div>
+
+      <div class="card">
+        <h2>Stresslevel vs. Stuhlgang</h2>
+        <p class="hint">Wie oft welche Kombination aus Stresslevel und Bristol-Wert vorkam.</p>
+        <div id="heatmapWrap"></div>
+      </div>
+
+      <div class="card">
+        <h2>Meistgegessene Lebensmittel</h2>
+        <p class="hint">Im gewählten Zeitraum, insgesamt.</p>
+        <canvas id="foodChart" height="170"></canvas>
+      </div>
+
+      <div class="card">
+        <h2>Essen am Vortag, je nach Bristol-Wert</h2>
+        <p class="hint">Welche Lebensmittel wurden am Tag <em>vor</em> einem bestimmten Bristol-Wert am häufigsten gegessen?</p>
+        <div class="bristol-select" id="bristolFilterRow"></div>
+        <canvas id="dayBeforeChart" height="170"></canvas>
+        <div class="empty-state" id="dayBeforeEmpty" style="display:none;">Für diesen Wert liegen noch keine Vortages-Daten vor.</div>
+      </div>
+
+    </section>
+
+    <!-- ================= DATEN ================= -->
+    <section class="panel" id="panel-data">
+
+      <div class="card">
+        <h2>Erinnerung</h2>
+        <p class="hint">Best-effort Erinnerung, solange die App im Hintergrund offen bleibt. Details unten unter „Wichtig für Xiaomi/MIUI“.</p>
+        <div class="reminder-row">
+          <label class="switch">
+            <input type="checkbox" id="reminderToggle">
+            <span class="switch-track"><span class="switch-thumb"></span></span>
+          </label>
+          <span>Tägliche Erinnerung</span>
+          <input type="time" id="reminderTime" value="20:00">
+        </div>
+        <button class="btn-secondary" id="notifPermBtn">Benachrichtigungen erlauben</button>
+        <div class="notif-status" id="notifStatus"></div>
+      </div>
+
+      <div class="card">
+        <h2>Export</h2>
+        <p class="hint">Speichert alle Einträge als JSON-Datei — für ein Backup oder den Umzug auf ein neues Handy.</p>
+        <button class="btn-secondary" id="exportBtn">Daten exportieren (.json)</button>
+      </div>
+
+      <div class="card">
+        <h2>Import</h2>
+        <p class="hint">Wähle eine zuvor exportierte JSON-Datei aus.</p>
+        <input type="file" id="importFile" accept="application/json,.json" style="display:none;">
+        <button class="btn-secondary" id="importBtn">Datei auswählen</button>
+        <div class="import-mode">
+          <label><input type="radio" name="importMode" value="merge" checked> Zusammenführen (bestehende Einträge behalten)</label>
+          <label><input type="radio" name="importMode" value="replace"> Ersetzen (alles überschreiben)</label>
+        </div>
+        <div class="import-status" id="importStatus"></div>
+      </div>
+
+      <div class="card">
+        <h2>Wichtig für Xiaomi / MIUI</h2>
+        <p class="hint" style="margin-bottom:0;">
+          MIUI beendet Hintergrund-Apps und Benachrichtigungen sehr aggressiv. Damit die Erinnerung überhaupt eine Chance hat:<br><br>
+          1. App zum Startbildschirm hinzufügen (Browsermenü → „Zum Startbildschirm hinzufügen“).<br>
+          2. Einstellungen → Apps → [dein Browser] → Akku → „Keine Einschränkungen“.<br>
+          3. Sicherheit-App (MIUI) → Berechtigungen → Autostart → Browser aktivieren.<br>
+          4. Einstellungen → Benachrichtigungen → [dein Browser] → erlaubt lassen.<br><br>
+          Auch dann kann MIUI die Erinnerung verzögern. Am zuverlässigsten bleibt: App täglich einmal selbst öffnen.
+        </p>
+      </div>
+
+      <div class="card">
+        <h2>Speicher</h2>
+        <div class="storage-info" id="storageInfo"></div>
+        <button class="btn-danger" id="resetBtn">Alle Daten löschen</button>
+      </div>
+
+    </section>
+
+  </main>
+
+  <nav class="tabbar">
+    <div class="tabbar-inner">
+      <button class="tab-btn active" data-tab="today">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3.5" y="4.5" width="17" height="16" rx="3"/><path d="M3.5 9.5h17" stroke-linecap="round"/><path d="M8 3v3M16 3v3" stroke-linecap="round"/></svg>
+        <span>Heute</span>
+      </button>
+      <button class="tab-btn" data-tab="history">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 12a8 8 0 1 1 2.6 5.9" stroke-linecap="round"/><path d="M4 12V6M4 12h5" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 8v4l3 2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>Verlauf</span>
+      </button>
+      <button class="tab-btn" data-tab="stats">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20V10M11 20V4M18 20v-7" stroke-linecap="round"/></svg>
+        <span>Auswertung</span>
+      </button>
+      <button class="tab-btn" data-tab="data">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v13m0 0 4-4m-4 4-4-4" stroke-linecap="round" stroke-linejoin="round"/><path d="M4.5 16v2.5A1.5 1.5 0 0 0 6 20h12a1.5 1.5 0 0 0 1.5-1.5V16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>Daten</span>
+      </button>
+    </div>
+  </nav>
+
+</div>
+<script>
+(function(){
+"use strict";
+
+/* ============================================================
+   STATE
+   ============================================================ */
+const STORAGE_KEY = "gutlog_v1";
+const WEEKDAYS = ["Sonntag","Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag"];
+const MONTHS = ["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"];
+
+function defaultState(){
+  return { entries:{}, settings:{ reminderEnabled:false, reminderTime:"20:00" } };
+}
+let state = loadState();
+
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return defaultState();
+    const parsed = JSON.parse(raw);
+    if(!parsed.entries) parsed.entries = {};
+    if(!parsed.settings) parsed.settings = { reminderEnabled:false, reminderTime:"20:00" };
+    return parsed;
+  }catch(e){
+    console.error("Konnte gespeicherte Daten nicht lesen:", e);
+    return defaultState();
+  }
+}
+function saveState(){
+  try{
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    return true;
+  }catch(e){
+    console.error("Speichern fehlgeschlagen:", e);
+    return false;
+  }
+}
+
+function fmtDate(d){ // -> "YYYY-MM-DD"
+  const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,"0"), dd=String(d.getDate()).padStart(2,"0");
+  return `${y}-${m}-${dd}`;
+}
+function parseDate(s){ const [y,m,d]=s.split("-").map(Number); return new Date(y,m-1,d); }
+function addDays(dateStr, n){ const d=parseDate(dateStr); d.setDate(d.getDate()+n); return fmtDate(d); }
+function prettyDate(dateStr, withWeekday){
+  const d = parseDate(dateStr);
+  const today = fmtDate(new Date());
+  const yest = addDays(today,-1);
+  if(dateStr===today) return "Heute";
+  if(dateStr===yest) return "Gestern";
+  const base = `${d.getDate()}. ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+  return withWeekday ? `${WEEKDAYS[d.getDay()]}, ${base}` : base;
+}
+
+/* ============================================================
+   BRISTOL SCALE DATA
+   ============================================================ */
+const BRISTOL = [
+  { n:1, label:"Harte Klumpen", desc:"Einzelne harte Klumpen, schwer auszuscheiden. Deutet auf starke Verstopfung hin.", color:"#B4553D" },
+  { n:2, label:"Klumpig, wurstartig", desc:"Wurstartig, aber klumpig. Leichte Verstopfung.", color:"#C07A4C" },
+  { n:3, label:"Mit Rissen", desc:"Wurstartig mit rissiger Oberfläche. Normal.", color:"#8FA84F" },
+  { n:4, label:"Glatt, weich", desc:"Wurstartig, glatt und weich. Idealer Wert.", color:"#5F8560" },
+  { n:5, label:"Weiche Klumpen", desc:"Weiche Klumpen mit klaren Rändern. Eher weich, ggf. wenig Ballaststoffe.", color:"#5B8F9B" },
+  { n:6, label:"Breiig, fluffig", desc:"Fluffige Stücke mit unregelmäßigen Rändern, breiig. Leichter Durchfall.", color:"#4F7291" },
+  { n:7, label:"Wässrig", desc:"Wässrig, keine festen Stücke. Durchfall.", color:"#3D5C7A" },
+];
+
+function drawBristolIcon(canvas, type){
+  const ctx = canvas.getContext("2d");
+  const dpr = window.devicePixelRatio || 1;
+  const w = 36, h = 36;
+  canvas.width = w*dpr; canvas.height = h*dpr;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,w,h);
+  const c = BRISTOL[type-1].color;
+  ctx.fillStyle = c;
+  ctx.strokeStyle = c;
+  const cy = h/2;
+  function circ(x,y,r){ ctx.beginPath(); ctx.arc(x,y,r,0,7); ctx.fill(); }
+  if(type===1){
+    [7,15,23,29].forEach((x,i)=> circ(x, cy + (i%2?2:-2), 4.2));
+  } else if(type===2){
+    circ(10,cy,6.5); circ(18,cy-1,7); circ(26,cy+1,6.5);
+  } else if(type===3){
+    ctx.beginPath(); ctx.roundRect ? ctx.roundRect(5,cy-6,26,12,6) : ctx.rect(5,cy-6,26,12);
+    ctx.fill();
+    ctx.strokeStyle = "#FBFAF4"; ctx.lineWidth=1.4;
+    [12,18,24].forEach(x=>{ ctx.beginPath(); ctx.moveTo(x,cy-5); ctx.lineTo(x-1.5,cy+5); ctx.stroke(); });
+  } else if(type===4){
+    ctx.beginPath();
+    if(ctx.roundRect) ctx.roundRect(5,cy-6,26,12,6); else ctx.rect(5,cy-6,26,12);
+    ctx.fill();
+  } else if(type===5){
+    circ(10,cy,6); circ(19,cy,6.5); circ(28,cy,6);
+  } else if(type===6){
+    const pts=[[7,cy-3],[13,cy+4],[18,cy-4],[23,cy+3],[28,cy-2],[31,cy+4]];
+    pts.forEach(p=> circ(p[0],p[1], 3.4));
+  } else if(type===7){
+    ctx.globalAlpha=0.85;
+    for(let i=0;i<3;i++){
+      ctx.beginPath();
+      ctx.moveTo(4, cy-4+i*5);
+      ctx.bezierCurveTo(11,cy-9+i*5, 18,cy+1+i*5, 25,cy-4+i*5);
+      ctx.bezierCurveTo(29,cy-7+i*5, 31,cy-2+i*5, 32,cy-4+i*5);
+      ctx.lineWidth=2.6; ctx.lineCap="round"; ctx.stroke();
+    }
+    ctx.globalAlpha=1;
+  }
+}
+
+/* ============================================================
+   NAVIGATION / TABS
+   ============================================================ */
+document.querySelectorAll(".tab-btn").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
+    document.querySelectorAll(".panel").forEach(p=>p.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById("panel-"+btn.dataset.tab).classList.add("active");
+    if(btn.dataset.tab==="history") renderHistory();
+    if(btn.dataset.tab==="stats") renderStats();
+    if(btn.dataset.tab==="data") renderDataTab();
+  });
+});
+
+/* ============================================================
+   HEADER (date + progress ring)
+   ============================================================ */
+function updateHeader(){
+  const d = new Date();
+  document.getElementById("todayLabel").textContent = `${WEEKDAYS[d.getDay()]}, ${d.getDate()}. ${MONTHS[d.getMonth()]}`;
+  const todayEntry = state.entries[fmtDate(d)];
+  let done = 0;
+  if(todayEntry){
+    if(todayEntry.foods && todayEntry.foods.length) done++;
+    if(typeof todayEntry.stress === "number") done++;
+    if(typeof todayEntry.bristol === "number") done++;
+  }
+  document.getElementById("ringCount").textContent = done+"/3";
+  const circumference = 113;
+  const offset = circumference - (done/3)*circumference;
+  document.getElementById("ringFg").style.strokeDashoffset = offset;
+}
+
+/* ============================================================
+   TODAY PANEL
+   ============================================================ */
+let currentDay = fmtDate(new Date());
+let draftFoods = [];
+
+function loadDayIntoDraft(dateStr){
+  const e = state.entries[dateStr];
+  draftFoods = e && e.foods ? [...e.foods] : [];
+  renderFoodChips();
+  renderStressScale(e ? e.stress : null);
+  renderBristolRow(e ? e.bristol : null);
+  document.getElementById("dayPickerLabel").textContent = prettyDate(dateStr, true);
+  document.getElementById("saveMsg").textContent = "";
+  document.getElementById("dayFwdBtn").disabled = dateStr >= fmtDate(new Date());
+  document.getElementById("dayFwdBtn").style.opacity = document.getElementById("dayFwdBtn").disabled ? 0.3 : 1;
+}
+
+function renderFoodChips(){
+  const wrap = document.getElementById("foodChips");
+  wrap.innerHTML = "";
+  draftFoods.forEach((food,i)=>{
+    const chip = document.createElement("div");
+    chip.className = "chip";
+    chip.innerHTML = `<span></span><button aria-label="Entfernen">×</button>`;
+    chip.querySelector("span").textContent = food;
+    chip.querySelector("button").addEventListener("click", ()=>{
+      draftFoods.splice(i,1);
+      renderFoodChips();
+    });
+    wrap.appendChild(chip);
+  });
+}
+
+function addFoodFromInput(){
+  const input = document.getElementById("foodInput");
+  const v = input.value.trim();
+  if(!v) return;
+  draftFoods.push(v);
+  input.value = "";
+  renderFoodChips();
+  input.focus();
+}
+document.getElementById("foodAddBtn").addEventListener("click", addFoodFromInput);
+document.getElementById("foodInput").addEventListener("keydown", (e)=>{
+  if(e.key==="Enter"){ e.preventDefault(); addFoodFromInput(); }
+});
+
+let draftStress = null;
+function renderStressScale(current){
+  draftStress = (typeof current === "number") ? current : null;
+  const wrap = document.getElementById("stressScale");
+  wrap.innerHTML = "";
+  for(let i=1;i<=10;i++){
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "stress-btn" + (draftStress===i ? " active" : "");
+    b.textContent = i;
+    const t = i/10;
+    const col = t<=0.4 ? "#5F8560" : t<=0.7 ? "#B8863B" : "#B4553D";
+    if(draftStress===i) b.style.background = col;
+    b.addEventListener("click", ()=>{ draftStress=i; renderStressScale(i); });
+    wrap.appendChild(b);
+  }
+}
+
+let draftBristol = null;
+function renderBristolRow(current){
+  draftBristol = (typeof current === "number") ? current : null;
+  const wrap = document.getElementById("bristolRow");
+  wrap.innerHTML = "";
+  BRISTOL.forEach(b=>{
+    const card = document.createElement("div");
+    card.className = "bristol-card" + (draftBristol===b.n ? " active" : "");
+    card.innerHTML = `<canvas></canvas><div class="b-num">Typ ${b.n}</div>`;
+    drawBristolIcon(card.querySelector("canvas"), b.n);
+    card.addEventListener("click", ()=>{ draftBristol=b.n; renderBristolRow(b.n); updateBristolDetail(); });
+    wrap.appendChild(card);
+  });
+  updateBristolDetail();
+}
+function updateBristolDetail(){
+  const el = document.getElementById("bristolDetail");
+  if(draftBristol==null){ el.textContent = "Noch keine Auswahl."; return; }
+  const b = BRISTOL[draftBristol-1];
+  el.textContent = `Typ ${b.n} — ${b.label}. ${b.desc}`;
+}
+
+document.getElementById("dayBackBtn").addEventListener("click", ()=>{
+  currentDay = addDays(currentDay,-1);
+  loadDayIntoDraft(currentDay);
+});
+document.getElementById("dayFwdBtn").addEventListener("click", ()=>{
+  if(currentDay >= fmtDate(new Date())) return;
+  currentDay = addDays(currentDay,1);
+  loadDayIntoDraft(currentDay);
+});
+
+document.getElementById("saveTodayBtn").addEventListener("click", ()=>{
+  state.entries[currentDay] = {
+    foods: [...draftFoods],
+    stress: draftStress,
+    bristol: draftBristol,
+    updatedAt: Date.now()
+  };
+  const ok = saveState();
+  const msg = document.getElementById("saveMsg");
+  msg.textContent = ok ? "Gespeichert ✓" : "Fehler beim Speichern";
+  msg.style.color = ok ? "" : "var(--rust)";
+  updateHeader();
+  setTimeout(()=>{ msg.textContent=""; }, 2200);
+});
+
+/* ============================================================
+   HISTORY PANEL
+   ============================================================ */
+function renderHistory(){
+  const list = document.getElementById("historyList");
+  const empty = document.getElementById("historyEmpty");
+  const dates = Object.keys(state.entries).sort().reverse();
+  list.innerHTML = "";
+  empty.style.display = dates.length ? "none" : "block";
+  dates.forEach(dateStr=>{
+    const e = state.entries[dateStr];
+    const row = document.createElement("div");
+    row.className = "hist-entry";
+    const bInfo = e.bristol ? BRISTOL[e.bristol-1] : null;
+    row.innerHTML = `
+      <div class="hist-entry-top">
+        <div class="hist-date">${prettyDate(dateStr, true)}</div>
+        <div class="hist-badges">
+          ${typeof e.stress==="number" ? `<span class="badge stress">Stress ${e.stress}</span>` : ""}
+          ${bInfo ? `<span class="badge bristol">Typ ${bInfo.n}</span>` : ""}
+        </div>
+      </div>
+      <div class="hist-foods">${e.foods && e.foods.length ? e.foods.join(" · ") : "Keine Lebensmittel eingetragen"}</div>
+      <div class="hist-edit">
+        <div class="hist-edit-row">
+          <button class="btn-edit-open" data-date="${dateStr}">Bearbeiten</button>
+          <button class="btn-delete" data-date="${dateStr}">Löschen</button>
+        </div>
+      </div>
+    `;
+    row.addEventListener("click", (ev)=>{
+      if(ev.target.closest("button")) return;
+      row.classList.toggle("open");
+    });
+    row.querySelector(".btn-delete").addEventListener("click", (ev)=>{
+      ev.stopPropagation();
+      if(confirm(`Eintrag vom ${prettyDate(dateStr)} wirklich löschen?`)){
+        delete state.entries[dateStr];
+        saveState();
+        renderHistory();
+        updateHeader();
+      }
+    });
+    row.querySelector(".btn-edit-open").addEventListener("click", (ev)=>{
+      ev.stopPropagation();
+      currentDay = dateStr;
+      loadDayIntoDraft(dateStr);
+      document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
+      document.querySelectorAll(".panel").forEach(p=>p.classList.remove("active"));
+      document.querySelector('.tab-btn[data-tab="today"]').classList.add("active");
+      document.getElementById("panel-today").classList.add("active");
+    });
+    list.appendChild(row);
+  });
+}
+
+/* ============================================================
+   STATS PANEL
+   ============================================================ */
+let currentRange = "all";
+document.querySelectorAll("#rangeRow button").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    document.querySelectorAll("#rangeRow button").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+    currentRange = btn.dataset.range;
+    renderStats();
+  });
+});
+
+function entriesInRange(){
+  const dates = Object.keys(state.entries).sort();
+  if(currentRange==="all") return dates;
+  const n = parseInt(currentRange,10);
+  const cutoff = addDays(fmtDate(new Date()), -n+1);
+  return dates.filter(d=> d>=cutoff);
+}
+
+function renderStats(){
+  const dates = entriesInRange();
+  renderStatGrid(dates);
+  renderTimelineChart(dates);
+  renderHeatmap(dates);
+  renderFoodChart(dates);
+  renderBristolFilterRow();
+  renderDayBeforeChart();
+}
+
+function renderStatGrid(dates){
+  const grid = document.getElementById("statGrid");
+  const stressVals = dates.map(d=>state.entries[d].stress).filter(v=>typeof v==="number");
+  const bristolVals = dates.map(d=>state.entries[d].bristol).filter(v=>typeof v==="number");
+  const avgStress = stressVals.length ? (stressVals.reduce((a,b)=>a+b,0)/stressVals.length).toFixed(1) : "–";
+  const avgBristol = bristolVals.length ? (bristolVals.reduce((a,b)=>a+b,0)/bristolVals.length).toFixed(1) : "–";
+  grid.innerHTML = `
+    <div class="stat-box"><div class="v">${dates.length}</div><div class="l">Einträge</div></div>
+    <div class="stat-box"><div class="v">${avgStress}</div><div class="l">Ø Stress</div></div>
+    <div class="stat-box"><div class="v">${avgBristol}</div><div class="l">Ø Bristol</div></div>
+  `;
+}
+
+function setupCanvas(canvas){
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  const w = rect.width || canvas.parentElement.clientWidth;
+  const h = canvas.height ? parseInt(canvas.getAttribute("height"),10) : 160;
+  canvas.width = w*dpr; canvas.height = h*dpr;
+  canvas.style.height = h+"px";
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,w,h);
+  return {ctx,w,h};
+}
+
+function renderTimelineChart(dates){
+  const canvas = document.getElementById("timelineChart");
+  const {ctx,w,h} = setupCanvas(canvas);
+  if(dates.length < 2){
+    ctx.fillStyle = "#8A9186"; ctx.font = "12px sans-serif"; ctx.textAlign="center";
+    ctx.fillText("Zu wenige Daten für einen Verlauf.", w/2, h/2);
+    return;
+  }
+  const padL=26, padR=26, padT=14, padB=22;
+  const plotW = w-padL-padR, plotH = h-padT-padB;
+  const n = dates.length;
+  const xFor = i => padL + (n===1?0:(i/(n-1))*plotW);
+  const yForStress = v => padT + plotH - (v/10)*plotH;
+  const yForBristol = v => padT + plotH - (v/7)*plotH;
+
+  ctx.strokeStyle = "#EAE8DA"; ctx.lineWidth=1;
+  for(let g=0; g<=4; g++){
+    const y = padT + (g/4)*plotH;
+    ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(w-padR,y); ctx.stroke();
+  }
+  function drawLine(color, getter, scaler){
+    ctx.beginPath();
+    let started=false;
+    dates.forEach((d,i)=>{
+      const v = state.entries[d][getter];
+      if(typeof v!=="number") return;
+      const x = xFor(i), y = scaler(v);
+      if(!started){ ctx.moveTo(x,y); started=true; } else ctx.lineTo(x,y);
+    });
+    ctx.strokeStyle = color; ctx.lineWidth = 2.2; ctx.lineJoin="round"; ctx.lineCap="round";
+    ctx.stroke();
+    dates.forEach((d,i)=>{
+      const v = state.entries[d][getter];
+      if(typeof v!=="number") return;
+      const x = xFor(i), y = scaler(v);
+      ctx.beginPath(); ctx.arc(x,y,2.6,0,7); ctx.fillStyle=color; ctx.fill();
+    });
+  }
+  drawLine("#B8863B","stress",yForStress);
+  drawLine("#4F7291","bristol",yForBristol);
+
+  ctx.fillStyle = "#8A9186"; ctx.font = "10px sans-serif"; ctx.textAlign="left";
+  ctx.fillText(prettyDate(dates[0]), padL, h-6);
+  ctx.textAlign="right";
+  ctx.fillText(prettyDate(dates[dates.length-1]), w-padR, h-6);
+}
+
+function renderHeatmap(dates){
+  const wrap = document.getElementById("heatmapWrap");
+  const counts = {};
+  let max = 0;
+  dates.forEach(d=>{
+    const e = state.entries[d];
+    if(typeof e.stress!=="number" || typeof e.bristol!=="number") return;
+    const key = e.stress+"_"+e.bristol;
+    counts[key] = (counts[key]||0)+1;
+    if(counts[key]>max) max = counts[key];
+  });
+  if(max===0){
+    wrap.innerHTML = `<div class="empty-state">Noch keine Tage mit Stress- und Bristol-Wert zusammen.</div>`;
+    return;
+  }
+  let html = `<table class="heatmap-table"><tr><th></th>`;
+  for(let b=1;b<=7;b++) html += `<th>B${b}</th>`;
+  html += `</tr>`;
+  for(let s=10;s>=1;s--){
+    html += `<tr><th>S${s}</th>`;
+    for(let b=1;b<=7;b++){
+      const c = counts[s+"_"+b] || 0;
+      const alpha = c===0 ? 0 : 0.18 + 0.75*(c/max);
+      const bg = c===0 ? "transparent" : `rgba(79,114,145,${alpha.toFixed(2)})`;
+      html += `<td><div class="heatmap-cell" style="background:${bg}; color:${alpha>0.55?'#fff':'#1F2A22'}">${c||""}</div></td>`;
+    }
+    html += `</tr>`;
+  }
+  html += `</table>`;
+  wrap.innerHTML = html;
+}
+
+function renderFoodChart(dates){
+  const canvas = document.getElementById("foodChart");
+  const counts = {};
+  dates.forEach(d=>{
+    (state.entries[d].foods||[]).forEach(f=>{
+      const key = f.trim().toLowerCase();
+      if(!key) return;
+      counts[key] = counts[key] || {label:f.trim(), n:0};
+      counts[key].n++;
+    });
+  });
+  const top = Object.values(counts).sort((a,b)=>b.n-a.n).slice(0,8);
+  drawHBarChart(canvas, top.map(t=>t.label), top.map(t=>t.n), "#5F8560", "Keine Lebensmittel im Zeitraum erfasst.");
+}
+
+function drawHBarChart(canvas, labels, values, color, emptyMsg){
+  const {ctx,w,h} = setupCanvas(canvas);
+  if(!labels.length){
+    ctx.fillStyle = "#8A9186"; ctx.font = "12px sans-serif"; ctx.textAlign="center";
+    ctx.fillText(emptyMsg, w/2, h/2);
+    return;
+  }
+  const max = Math.max(...values);
+  const rowH = h/labels.length;
+  const labelW = 92;
+  ctx.font = "11.5px sans-serif"; ctx.textBaseline="middle";
+  labels.forEach((label,i)=>{
+    const y = i*rowH + rowH/2;
+    const barMaxW = w-labelW-32;
+    const barW = (values[i]/max)*barMaxW;
+    ctx.fillStyle = "#5A6459"; ctx.textAlign="right";
+    let shown = label.length>13 ? label.slice(0,12)+"…" : label;
+    ctx.fillText(shown, labelW-8, y);
+    ctx.fillStyle = color;
+    const bh = Math.min(16, rowH*0.5);
+    if(ctx.roundRect){
+      ctx.beginPath(); ctx.roundRect(labelW, y-bh/2, Math.max(barW,3), bh, 4); ctx.fill();
+    } else {
+      ctx.fillRect(labelW, y-bh/2, Math.max(barW,3), bh);
+    }
+    ctx.fillStyle = "#1F2A22"; ctx.textAlign="left"; ctx.font="10.5px sans-serif";
+    ctx.fillText(values[i], labelW+barW+6, y);
+    ctx.font = "11.5px sans-serif";
+  });
+}
+
+let bristolFilterVal = null;
+function renderBristolFilterRow(){
+  const wrap = document.getElementById("bristolFilterRow");
+  wrap.innerHTML = "";
+  BRISTOL.forEach(b=>{
+    const btn = document.createElement("button");
+    btn.textContent = b.n;
+    if(bristolFilterVal===b.n) btn.classList.add("active");
+    btn.addEventListener("click", ()=>{ bristolFilterVal = b.n; renderBristolFilterRow(); renderDayBeforeChart(); });
+    wrap.appendChild(btn);
+  });
+  if(bristolFilterVal===null && BRISTOL.length){
+    bristolFilterVal = 4;
+    wrap.children[3].classList.add("active");
+  }
+}
+
+function renderDayBeforeChart(){
+  const canvas = document.getElementById("dayBeforeChart");
+  const emptyEl = document.getElementById("dayBeforeEmpty");
+  const dates = entriesInRange();
+  const dateSet = new Set(dates);
+  const counts = {};
+  dates.forEach(d=>{
+    const e = state.entries[d];
+    if(e.bristol !== bristolFilterVal) return;
+    const prevDay = addDays(d,-1);
+    const prevEntry = state.entries[prevDay];
+    if(!prevEntry || !prevEntry.foods) return;
+    prevEntry.foods.forEach(f=>{
+      const key = f.trim().toLowerCase();
+      if(!key) return;
+      counts[key] = counts[key] || {label:f.trim(), n:0};
+      counts[key].n++;
+    });
+  });
+  const top = Object.values(counts).sort((a,b)=>b.n-a.n).slice(0,8);
+  if(!top.length){
+    canvas.style.display="none"; emptyEl.style.display="block";
+  } else {
+    canvas.style.display="block"; emptyEl.style.display="none";
+    drawHBarChart(canvas, top.map(t=>t.label), top.map(t=>t.n), "#4F7291", "");
+  }
+}
+
+/* ============================================================
+   DATA TAB — export / import / reminder / storage
+   ============================================================ */
+function renderDataTab(){
+  document.getElementById("reminderToggle").checked = !!state.settings.reminderEnabled;
+  document.getElementById("reminderTime").value = state.settings.reminderTime || "20:00";
+  updateNotifStatus();
+  const count = Object.keys(state.entries).length;
+  const bytes = new Blob([JSON.stringify(state)]).size;
+  document.getElementById("storageInfo").textContent =
+    `${count} Tag(e) gespeichert · ${(bytes/1024).toFixed(1)} KB lokal auf diesem Gerät.`;
+}
+
+document.getElementById("exportBtn").addEventListener("click", ()=>{
+  const payload = JSON.stringify(state, null, 2);
+  const blob = new Blob([payload], {type:"application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const stamp = fmtDate(new Date());
+  a.href = url;
+  a.download = `gutlog-export-${stamp}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url), 2000);
+});
+
+document.getElementById("importBtn").addEventListener("click", ()=>{
+  document.getElementById("importFile").click();
+});
+document.getElementById("importFile").addEventListener("change", (ev)=>{
+  const file = ev.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const statusEl = document.getElementById("importStatus");
+    try{
+      const data = JSON.parse(reader.result);
+      if(!data || typeof data.entries !== "object") throw new Error("Ungültiges Format");
+      const mode = document.querySelector('input[name="importMode"]:checked').value;
+      if(mode === "replace"){
+        state.entries = data.entries;
+      } else {
+        state.entries = Object.assign({}, state.entries, data.entries);
+      }
+      if(data.settings) state.settings = Object.assign({}, state.settings, data.settings);
+      saveState();
+      statusEl.style.color = "var(--sage)";
+      statusEl.textContent = `Import erfolgreich: ${Object.keys(data.entries).length} Tag(e) importiert.`;
+      updateHeader();
+      renderDataTab();
+    }catch(e){
+      statusEl.style.color = "var(--rust)";
+      statusEl.textContent = "Import fehlgeschlagen: Datei ungültig.";
+      console.error(e);
+    }
+  };
+  reader.readAsText(file);
+  ev.target.value = "";
+});
+
+document.getElementById("resetBtn").addEventListener("click", ()=>{
+  if(confirm("Wirklich ALLE Einträge unwiderruflich löschen? Exportiere vorher ggf. ein Backup.")){
+    state = defaultState();
+    saveState();
+    updateHeader();
+    renderDataTab();
+    loadDayIntoDraft(currentDay);
+  }
+});
+
+/* ---- Reminder / Notifications ---- */
+function updateNotifStatus(){
+  const el = document.getElementById("notifStatus");
+  if(!("Notification" in window)){
+    el.textContent = "Benachrichtigungen werden von diesem Browser nicht unterstützt.";
+    return;
+  }
+  const perm = Notification.permission;
+  el.textContent = perm==="granted" ? "Benachrichtigungen erlaubt."
+    : perm==="denied" ? "Benachrichtigungen blockiert — in den Browsereinstellungen erlauben."
+    : "Noch nicht erlaubt.";
+}
+document.getElementById("notifPermBtn").addEventListener("click", ()=>{
+  if(!("Notification" in window)){ updateNotifStatus(); return; }
+  Notification.requestPermission().then(()=>{ updateNotifStatus(); scheduleReminder(); });
+});
+document.getElementById("reminderToggle").addEventListener("change", (e)=>{
+  state.settings.reminderEnabled = e.target.checked;
+  saveState();
+  scheduleReminder();
+});
+document.getElementById("reminderTime").addEventListener("change", (e)=>{
+  state.settings.reminderTime = e.target.value;
+  saveState();
+  scheduleReminder();
+});
+
+let reminderTimeoutId = null;
+function scheduleReminder(){
+  if(reminderTimeoutId){ clearTimeout(reminderTimeoutId); reminderTimeoutId=null; }
+  if(!state.settings.reminderEnabled) return;
+  if(!("Notification" in window) || Notification.permission!=="granted") return;
+  const [hh,mm] = (state.settings.reminderTime||"20:00").split(":").map(Number);
+  const now = new Date();
+  const target = new Date();
+  target.setHours(hh,mm,0,0);
+  if(target <= now) target.setDate(target.getDate()+1);
+  const ms = target - now;
+  reminderTimeoutId = setTimeout(()=>{
+    const todayEntry = state.entries[fmtDate(new Date())];
+    const complete = todayEntry && todayEntry.foods && todayEntry.foods.length && typeof todayEntry.stress==="number" && typeof todayEntry.bristol==="number";
+    if(!complete){
+      try{ new Notification("GutLog", { body: "Zeit für deinen heutigen Eintrag." }); }catch(e){}
+    }
+    scheduleReminder();
+  }, ms);
+}
+
+/* ============================================================
+   INIT
+   ============================================================ */
+function buildFoodSuggestions(){
+  const dl = document.getElementById("foodSuggestions");
+  const seen = new Set();
+  Object.values(state.entries).forEach(e=>{
+    (e.foods||[]).forEach(f=>{
+      const key = f.trim().toLowerCase();
+      if(key && !seen.has(key)){ seen.add(key); const o=document.createElement("option"); o.value=f.trim(); dl.appendChild(o); }
+    });
+  });
+}
+
+updateHeader();
+loadDayIntoDraft(currentDay);
+buildFoodSuggestions();
+scheduleReminder();
+
+if("serviceWorker" in navigator){
+  window.addEventListener("load", ()=>{
+    navigator.serviceWorker.register("./sw.js").catch(e=>console.warn("SW-Registrierung fehlgeschlagen:", e));
+  });
+}
+
+})();
+</script>
+</body>
+</html>
