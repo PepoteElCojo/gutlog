@@ -727,10 +727,16 @@ function drawBristolIcon(canvas, type){
   canvas.width = w*dpr; canvas.height = h*dpr;
   ctx.setTransform(dpr,0,0,dpr,0,0);
   ctx.clearRect(0,0,w,h);
+  const cy = h/2;
+  if(type===0){
+    // "Kein Stuhlgang" — neutraler Strich statt Bristol-Form
+    ctx.strokeStyle = "#8A9186"; ctx.lineWidth = 3; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(10,cy); ctx.lineTo(26,cy); ctx.stroke();
+    return;
+  }
   const c = BRISTOL[type-1].color;
   ctx.fillStyle = c;
   ctx.strokeStyle = c;
-  const cy = h/2;
   function circ(x,y,r){ ctx.beginPath(); ctx.arc(x,y,r,0,7); ctx.fill(); }
   if(type===1){
     [7,15,23,29].forEach((x,i)=> circ(x, cy + (i%2?2:-2), 4.2));
@@ -869,10 +875,11 @@ function renderBristolRow(current){
   draftBristol = (typeof current === "number") ? current : null;
   const wrap = document.getElementById("bristolRow");
   wrap.innerHTML = "";
-  BRISTOL.forEach(b=>{
+  const NONE_OPTION = { n:0, label:"Kein Stuhlgang", desc:"Du warst heute nicht (auswertbar) auf Toilette. Fließt in keine Bristol-Auswertung ein." };
+  [NONE_OPTION, ...BRISTOL].forEach(b=>{
     const card = document.createElement("div");
     card.className = "bristol-card" + (draftBristol===b.n ? " active" : "");
-    card.innerHTML = `<canvas></canvas><div class="b-num">Typ ${b.n}</div>`;
+    card.innerHTML = `<canvas></canvas><div class="b-num">${b.n===0 ? "Keiner" : "Typ "+b.n}</div>`;
     drawBristolIcon(card.querySelector("canvas"), b.n);
     card.addEventListener("click", ()=>{ draftBristol=b.n; renderBristolRow(b.n); updateBristolDetail(); });
     wrap.appendChild(card);
@@ -882,6 +889,7 @@ function renderBristolRow(current){
 function updateBristolDetail(){
   const el = document.getElementById("bristolDetail");
   if(draftBristol==null){ el.textContent = "Noch keine Auswahl."; return; }
+  if(draftBristol===0){ el.textContent = "Kein Stuhlgang — zählt als beantwortet, wird aber in Auswertungen zum Bristol-Wert ausgeklammert."; return; }
   const b = BRISTOL[draftBristol-1];
   el.textContent = `Typ ${b.n} — ${b.label}. ${b.desc}`;
 }
@@ -897,6 +905,17 @@ document.getElementById("dayFwdBtn").addEventListener("click", ()=>{
 });
 
 document.getElementById("saveTodayBtn").addEventListener("click", ()=>{
+  const msg = document.getElementById("saveMsg");
+  const missing = [];
+  if(!draftFoods.length) missing.push("mind. ein Lebensmittel");
+  if(draftStress===null) missing.push("Stresslevel");
+  if(draftBristol===null) missing.push("Stuhlgang (ggf. „Kein Stuhlgang“)");
+  if(missing.length){
+    msg.textContent = "Fehlt noch: " + missing.join(", ");
+    msg.style.color = "var(--rust)";
+    setTimeout(()=>{ msg.textContent=""; }, 3400);
+    return;
+  }
   state.entries[currentDay] = {
     foods: [...draftFoods],
     stress: draftStress,
@@ -904,7 +923,6 @@ document.getElementById("saveTodayBtn").addEventListener("click", ()=>{
     updatedAt: Date.now()
   };
   const ok = saveState();
-  const msg = document.getElementById("saveMsg");
   msg.textContent = ok ? "Gespeichert ✓" : "Fehler beim Speichern";
   msg.style.color = ok ? "" : "var(--rust)";
   updateHeader();
@@ -925,13 +943,14 @@ function renderHistory(){
     const e = state.entries[dateStr];
     const row = document.createElement("div");
     row.className = "hist-entry";
-    const bInfo = e.bristol ? BRISTOL[e.bristol-1] : null;
+    const hasBristol = typeof e.bristol === "number";
+    const bristolBadgeText = hasBristol ? (e.bristol===0 ? "Kein Stuhlgang" : "Typ "+e.bristol) : null;
     row.innerHTML = `
       <div class="hist-entry-top">
         <div class="hist-date">${prettyDate(dateStr, true)}</div>
         <div class="hist-badges">
           ${typeof e.stress==="number" ? `<span class="badge stress">Stress ${e.stress}</span>` : ""}
-          ${bInfo ? `<span class="badge bristol">Typ ${bInfo.n}</span>` : ""}
+          ${bristolBadgeText ? `<span class="badge bristol">${bristolBadgeText}</span>` : ""}
         </div>
       </div>
       <div class="hist-foods">${e.foods && e.foods.length ? e.foods.join(" · ") : "Keine Lebensmittel eingetragen"}</div>
@@ -1002,7 +1021,7 @@ function renderStats(){
 function renderStatGrid(dates){
   const grid = document.getElementById("statGrid");
   const stressVals = dates.map(d=>state.entries[d].stress).filter(v=>typeof v==="number");
-  const bristolVals = dates.map(d=>state.entries[d].bristol).filter(v=>typeof v==="number");
+  const bristolVals = dates.map(d=>state.entries[d].bristol).filter(v=>typeof v==="number" && v>0);
   const avgStress = stressVals.length ? (stressVals.reduce((a,b)=>a+b,0)/stressVals.length).toFixed(1) : "–";
   const avgBristol = bristolVals.length ? (bristolVals.reduce((a,b)=>a+b,0)/bristolVals.length).toFixed(1) : "–";
   grid.innerHTML = `
@@ -1069,12 +1088,13 @@ function renderTimelineChart(dates){
     ctx.fillText(String(bristolVal), w-2, y);
   }
 
-  function drawLine(color, getter, scaler){
+  function drawLine(color, getter, scaler, isValid){
+    isValid = isValid || (v => typeof v === "number");
     ctx.beginPath();
     let started=false;
     dates.forEach((d,i)=>{
       const v = state.entries[d][getter];
-      if(typeof v!=="number") return;
+      if(!isValid(v)) return;
       const x = xFor(i), y = scaler(v);
       if(!started){ ctx.moveTo(x,y); started=true; } else ctx.lineTo(x,y);
     });
@@ -1082,13 +1102,13 @@ function renderTimelineChart(dates){
     ctx.stroke();
     dates.forEach((d,i)=>{
       const v = state.entries[d][getter];
-      if(typeof v!=="number") return;
+      if(!isValid(v)) return;
       const x = xFor(i), y = scaler(v);
       ctx.beginPath(); ctx.arc(x,y,2.6,0,7); ctx.fillStyle=color; ctx.fill();
     });
   }
   drawLine(STRESS_COLOR,"stress",yForStress);
-  drawLine(BRISTOL_COLOR,"bristol",yForBristol);
+  drawLine(BRISTOL_COLOR,"bristol",yForBristol, v => typeof v==="number" && v>0);
 
   ctx.fillStyle = "#8A9186"; ctx.font = "10px sans-serif"; ctx.textAlign="left";
   ctx.fillText(prettyDate(dates[0]), padL, h-6);
@@ -1102,7 +1122,7 @@ function renderHeatmap(dates){
   let max = 0;
   dates.forEach(d=>{
     const e = state.entries[d];
-    if(typeof e.stress!=="number" || typeof e.bristol!=="number") return;
+    if(typeof e.stress!=="number" || typeof e.bristol!=="number" || e.bristol===0) return;
     const key = e.stress+"_"+e.bristol;
     counts[key] = (counts[key]||0)+1;
     if(counts[key]>max) max = counts[key];
