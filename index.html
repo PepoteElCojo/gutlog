@@ -621,16 +621,16 @@ async function ensureBackupPermission(){
   }
 }
 
-// Liest die Anzahl Tage, die aktuell in der Backup-Datei stehen (0 falls keine/leer/kaputt).
-async function readBackupEntryCount(fileHandle){
+// Liest die Datums-Schlüssel, die aktuell in der Backup-Datei stehen ([] falls keine/leer/kaputt).
+async function readBackupEntryDates(fileHandle){
   try{
     const file = await fileHandle.getFile();
-    if(file.size === 0) return 0;
+    if(file.size === 0) return [];
     const text = await file.text();
     const parsed = JSON.parse(text);
-    return parsed && parsed.entries ? Object.keys(parsed.entries).length : 0;
+    return parsed && parsed.entries ? Object.keys(parsed.entries) : [];
   }catch(e){
-    return 0; // Datei leer/kaputt/nicht lesbar -> wie "keine Vorwarnung" behandeln
+    return []; // Datei leer/kaputt/nicht lesbar -> wie "keine Vorwarnung" behandeln
   }
 }
 
@@ -647,10 +647,15 @@ function showToast(text, ms){
 
 // Lädt den AKTUELLEN Inhalt der Backup-Datei als separate, zeitgestempelte
 // Datei in den Download-Ordner, BEVOR sie überschrieben wird. So geht bei
-// einem großen Rückgang (z.B. nach "Alle Daten löschen") nichts verloren —
-// ganz ohne dass man selbst daran denken muss.
-async function archiveOldBackupAsDownload(fileHandle, oldCount){
-  showToast(`⚠ Rückgang erkannt — alte Backup-Datei (${oldCount} Tag(e)) wird heruntergeladen …`, 4000);
+// einem Rückgang der Tage-Anzahl (z.B. nach "Alle Daten löschen" oder dem
+// Löschen eines einzelnen Tages) nichts verloren — ganz ohne dass man selbst
+// daran denken muss.
+async function archiveOldBackupAsDownload(fileHandle, missingDates, oldTotal){
+  const n = missingDates.length;
+  const sortedPreview = missingDates.slice().sort().slice(0,3).map(d=>prettyDate(d));
+  const moreText = n>3 ? ` (+${n-3} weitere)` : "";
+  const previewText = sortedPreview.join(", ") + moreText;
+  showToast(`⚠ ${n} Tag(e) fehlen gegenüber dem Backup: ${previewText} — alte Datei wird zur Sicherheit heruntergeladen …`, 4500);
   try{
     const file = await fileHandle.getFile();
     if(file.size === 0) return;
@@ -667,8 +672,8 @@ async function archiveOldBackupAsDownload(fileHandle, oldCount){
     a.click();
     document.body.removeChild(a);
     setTimeout(()=>URL.revokeObjectURL(url), 3000);
-    backupArchiveMsg = `Rückgang erkannt: die alte Backup-Datei (${oldCount} Tag(e)) wurde automatisch als „${filename}“ in deinen Download-Ordner geladen, bevor sie überschrieben wurde.`;
-    showToast(`✓ Alte Backup-Datei (${oldCount} Tag(e)) heruntergeladen als „${filename}“.`, 8000);
+    backupArchiveMsg = `${n} von ${oldTotal} Tag(en) fehlen jetzt gegenüber der alten Backup-Datei (${previewText}): sie wurde automatisch als „${filename}“ in deinen Download-Ordner geladen, bevor sie überschrieben wurde.`;
+    showToast(`✓ Alte Backup-Datei heruntergeladen als „${filename}“ (${n} fehlende Tag(e)).`, 8000);
   }catch(e){
     console.error("Alte Backup-Datei konnte nicht archiviert werden:", e);
     showToast("Achtung: alte Backup-Datei konnte nicht automatisch heruntergeladen werden.", 7000);
@@ -677,10 +682,12 @@ async function archiveOldBackupAsDownload(fileHandle, oldCount){
 
 /**
  * Schreibt den aktuellen Stand in die Backup-Datei — überschreibt sie also.
- * Sicherheitsnetz: Enthält die bestehende Datei deutlich MEHR Tage als gerade
- * gespeichert werden sollen (z.B. weil kurz zuvor "Alle Daten löschen"
- * gedrückt wurde und jetzt der erste neue Eintrag kommt), wird die alte Datei
- * zuerst automatisch heruntergeladen — danach wird ganz normal überschrieben.
+ * Sicherheitsnetz: Vergleicht die konkreten DATUMS-Schlüssel (nicht nur die
+ * Anzahl!) der bestehenden Backup-Datei mit dem, was gerade gespeichert wird.
+ * Kommen nur Tage hinzu, ist alles gut. Fehlt auch nur EIN Tag, der in der
+ * alten Datei war (egal ob insgesamt mehr oder weniger Tage), wird die alte
+ * Datei zuerst automatisch heruntergeladen — danach wird ganz normal
+ * überschrieben.
  */
 async function writeBackupNow(){
   if(!backupDirHandle) return;
@@ -692,11 +699,11 @@ async function writeBackupNow(){
   try{
     const fileHandle = await backupDirHandle.getFileHandle(BACKUP_FILENAME, {create:true});
 
-    const oldCount = await readBackupEntryCount(fileHandle);
-    const newCount = Object.keys(state.entries).length;
-    const bigDrop = (oldCount >= 2 && newCount === 0) || (oldCount >= 3 && newCount < oldCount * 0.5);
-    if(bigDrop){
-      await archiveOldBackupAsDownload(fileHandle, oldCount);
+    const oldDates = await readBackupEntryDates(fileHandle);
+    const newDatesSet = new Set(Object.keys(state.entries));
+    const missingDates = oldDates.filter(d => !newDatesSet.has(d));
+    if(missingDates.length > 0){
+      await archiveOldBackupAsDownload(fileHandle, missingDates, oldDates.length);
     } else {
       backupArchiveMsg = null;
     }
