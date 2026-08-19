@@ -839,7 +839,14 @@ function setupCanvas(canvas){
   const dpr = window.devicePixelRatio || 1;
   const rect = canvas.getBoundingClientRect();
   const w = rect.width || canvas.parentElement.clientWidth;
-  const h = canvas.height ? parseInt(canvas.getAttribute("height"),10) : 160;
+  // Die "logische" Höhe (CSS-Pixel) einmalig aus dem ursprünglichen HTML-Attribut merken.
+  // Wichtig: canvas.height selbst wird unten überschrieben (Geräte-Pixel), darf also
+  // bei späteren Aufrufen NICHT erneut als Quelle für h verwendet werden - sonst wächst
+  // die Höhe bei jedem Redraw um den Faktor dpr weiter.
+  if(!canvas.dataset.logicalHeight){
+    canvas.dataset.logicalHeight = canvas.getAttribute("height") || "160";
+  }
+  const h = parseInt(canvas.dataset.logicalHeight, 10);
   canvas.width = w*dpr; canvas.height = h*dpr;
   canvas.style.height = h+"px";
   const ctx = canvas.getContext("2d");

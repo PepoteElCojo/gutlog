@@ -1,4 +1,4 @@
-const CACHE_NAME = "gutlog-cache-v1";
+const CACHE_NAME = "gutlog-cache-v2";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -23,9 +23,29 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
-// Cache-first, falls back to network, and updates the cache in the background.
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+
+  const isHTML = event.request.mode === "navigate" ||
+    (event.request.headers.get("accept") || "").includes("text/html");
+
+  if (isHTML) {
+    // Network-first: sobald online, kommt eine neue Version (nach Commit) sofort an.
+    // Offline: Fallback auf die zuletzt gecachte Version.
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // Statische Assets (Icons, Manifest): cache-first fürs schnelle Offline-Laden,
+  // im Hintergrund im Cache aktualisiert.
   event.respondWith(
     caches.match(event.request).then((cached) => {
       const networkFetch = fetch(event.request)
