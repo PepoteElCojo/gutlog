@@ -133,6 +133,16 @@ main{ flex:1; padding: 4px 20px 24px; }
 .tab-btn span{ font-size:10.5px; font-weight:600; }
 .tab-btn.active{ color:var(--amber); background:var(--amber-soft); }
 
+/* ---------- Toast ---------- */
+.toast{
+  position:fixed; left:16px; right:16px; top:calc(12px + env(safe-area-inset-top));
+  z-index:50; background:var(--ink); color:var(--bg); padding:13px 16px; border-radius:var(--radius-m);
+  font-size:13px; line-height:1.5; font-weight:600; box-shadow:var(--shadow);
+  max-width:528px; margin:0 auto; display:none;
+}
+.toast.show{ display:block; animation: toast-in .25s ease; }
+@keyframes toast-in{ from{opacity:0; transform:translateY(-10px);} to{opacity:1; transform:translateY(0);} }
+
 /* ---------- Food input ---------- */
 .food-input-wrap{ position:relative; }
 .food-input-row{ display:flex; gap:8px; }
@@ -293,6 +303,8 @@ canvas{ width:100%; display:block; }
 </head>
 <body>
 <div id="app">
+
+  <div class="toast" id="globalToast"></div>
 
   <div class="topbar">
     <div class="brand">
@@ -553,6 +565,7 @@ const BACKUP_FILENAME = "gutlog-backup.json";
 const FSA_DIR_SUPPORTED = "showDirectoryPicker" in window;
 let backupDirHandle = null;
 let backupLastTime = null;
+let backupArchiveMsg = null; // gesetzt, wenn zuletzt automatisch archiviert wurde
 
 const IDB_NAME = "gutlog_idb";
 const IDB_STORE = "handles";
@@ -587,6 +600,7 @@ async function linkBackupFolder(){
   try{
     const dirHandle = await window.showDirectoryPicker({ mode:"readwrite" });
     backupDirHandle = dirHandle;
+    backupArchiveMsg = null;
     await idbSet("backupDirHandle", dirHandle);
     await writeBackupNow();
   }catch(e){
@@ -607,6 +621,67 @@ async function ensureBackupPermission(){
   }
 }
 
+// Liest die Anzahl Tage, die aktuell in der Backup-Datei stehen (0 falls keine/leer/kaputt).
+async function readBackupEntryCount(fileHandle){
+  try{
+    const file = await fileHandle.getFile();
+    if(file.size === 0) return 0;
+    const text = await file.text();
+    const parsed = JSON.parse(text);
+    return parsed && parsed.entries ? Object.keys(parsed.entries).length : 0;
+  }catch(e){
+    return 0; // Datei leer/kaputt/nicht lesbar -> wie "keine Vorwarnung" behandeln
+  }
+}
+
+// Kurze, auffällige Meldung oben im Bildschirm — sichtbar egal auf welchem Tab man ist.
+let toastTimeoutId = null;
+function showToast(text, ms){
+  const el = document.getElementById("globalToast");
+  if(!el) return;
+  el.textContent = text;
+  el.classList.add("show");
+  if(toastTimeoutId) clearTimeout(toastTimeoutId);
+  toastTimeoutId = setTimeout(()=>{ el.classList.remove("show"); }, ms || 6000);
+}
+
+// Lädt den AKTUELLEN Inhalt der Backup-Datei als separate, zeitgestempelte
+// Datei in den Download-Ordner, BEVOR sie überschrieben wird. So geht bei
+// einem großen Rückgang (z.B. nach "Alle Daten löschen") nichts verloren —
+// ganz ohne dass man selbst daran denken muss.
+async function archiveOldBackupAsDownload(fileHandle, oldCount){
+  showToast(`⚠ Rückgang erkannt — alte Backup-Datei (${oldCount} Tag(e)) wird heruntergeladen …`, 4000);
+  try{
+    const file = await fileHandle.getFile();
+    if(file.size === 0) return;
+    const text = await file.text();
+    const blob = new Blob([text], {type:"application/json"});
+    const url = URL.createObjectURL(blob);
+    const now = new Date();
+    const stamp = `${fmtDate(now)}_${String(now.getHours()).padStart(2,"0")}-${String(now.getMinutes()).padStart(2,"0")}-${String(now.getSeconds()).padStart(2,"0")}`;
+    const filename = `gutlog-backup-archiv-${stamp}.json`;
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url), 3000);
+    backupArchiveMsg = `Rückgang erkannt: die alte Backup-Datei (${oldCount} Tag(e)) wurde automatisch als „${filename}“ in deinen Download-Ordner geladen, bevor sie überschrieben wurde.`;
+    showToast(`✓ Alte Backup-Datei (${oldCount} Tag(e)) heruntergeladen als „${filename}“.`, 8000);
+  }catch(e){
+    console.error("Alte Backup-Datei konnte nicht archiviert werden:", e);
+    showToast("Achtung: alte Backup-Datei konnte nicht automatisch heruntergeladen werden.", 7000);
+  }
+}
+
+/**
+ * Schreibt den aktuellen Stand in die Backup-Datei — überschreibt sie also.
+ * Sicherheitsnetz: Enthält die bestehende Datei deutlich MEHR Tage als gerade
+ * gespeichert werden sollen (z.B. weil kurz zuvor "Alle Daten löschen"
+ * gedrückt wurde und jetzt der erste neue Eintrag kommt), wird die alte Datei
+ * zuerst automatisch heruntergeladen — danach wird ganz normal überschrieben.
+ */
 async function writeBackupNow(){
   if(!backupDirHandle) return;
   const ok = await ensureBackupPermission();
@@ -616,6 +691,16 @@ async function writeBackupNow(){
   }
   try{
     const fileHandle = await backupDirHandle.getFileHandle(BACKUP_FILENAME, {create:true});
+
+    const oldCount = await readBackupEntryCount(fileHandle);
+    const newCount = Object.keys(state.entries).length;
+    const bigDrop = (oldCount >= 2 && newCount === 0) || (oldCount >= 3 && newCount < oldCount * 0.5);
+    if(bigDrop){
+      await archiveOldBackupAsDownload(fileHandle, oldCount);
+    } else {
+      backupArchiveMsg = null;
+    }
+
     const writable = await fileHandle.createWritable();
     await writable.write(JSON.stringify(state, null, 2));
     await writable.close();
@@ -635,7 +720,7 @@ async function initBackupHandle(){
       backupDirHandle = handle;
       const perm = await handle.queryPermission({mode:"readwrite"});
       if(perm === "granted"){
-        // Stiller Refresh, keine Nutzerinteraktion nötig
+        // Stiller Refresh, keine Nutzerinteraktion nötig (Rückgangs-Prüfung greift trotzdem)
         await writeBackupNow();
       }
     }
@@ -659,7 +744,7 @@ function renderBackupCard(needsPermission){
   }
 
   if(!backupDirHandle){
-    hint.textContent = "Wähle einmalig einen Ordner auf deinem Handy (du kannst dabei direkt einen neuen Ordner z.B. „gutlog“ anlegen). Ab dann wird dort bei jedem Speichern automatisch eine Datei überschrieben — keine Duplikate.";
+    hint.textContent = "Wähle einmalig einen Ordner auf deinem Handy (du kannst dabei direkt einen neuen Ordner z.B. „gutlog“ anlegen). Ab dann wird dort bei jedem Speichern automatisch eine Datei überschrieben — keine Duplikate. Sinkt die Tage-Anzahl stark (z.B. nach „Alle Daten löschen“), lädt die App automatisch zuerst eine Kopie der alten Backup-Datei in deinen Download-Ordner, bevor sie überschrieben wird.";
     status.textContent = "Noch kein Ordner verknüpft.";
     status.className = "backup-status";
     linkBtn.textContent = "Backup-Ordner auswählen";
@@ -675,7 +760,12 @@ function renderBackupCard(needsPermission){
   if(needsPermission){
     status.textContent = "Zugriff auf den Ordner ist nicht mehr bestätigt.";
     status.className = "backup-status warn";
+    confirmBtn.textContent = "Zugriff bestätigen";
     confirmBtn.style.display = "block";
+  } else if(backupArchiveMsg){
+    status.textContent = backupArchiveMsg;
+    status.className = "backup-status warn";
+    confirmBtn.style.display = "none";
   } else {
     confirmBtn.style.display = "none";
     status.className = "backup-status ok";
@@ -1302,9 +1392,14 @@ document.getElementById("importFile").addEventListener("change", (ev)=>{
 });
 
 document.getElementById("resetBtn").addEventListener("click", ()=>{
-  if(confirm("Wirklich ALLE Einträge unwiderruflich löschen? Exportiere vorher ggf. ein Backup.")){
+  let warnText = "Wirklich ALLE Einträge unwiderruflich löschen? Exportiere vorher ggf. ein Backup.";
+  if(backupDirHandle){
+    warnText += `\n\nHinweis: Beim nächsten gespeicherten Eintrag erkennt die App den Rückgang automatisch und lädt vorher eine Kopie der aktuellen Backup-Datei in deinen Download-Ordner, bevor sie überschrieben wird.`;
+  }
+  if(confirm(warnText)){
     state = defaultState();
     saveState();
+    backupArchiveMsg = null;
     updateHeader();
     renderDataTab();
     loadDayIntoDraft(currentDay);
